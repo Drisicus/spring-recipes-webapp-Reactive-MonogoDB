@@ -1,0 +1,1 @@
+Spring boot 5 recipes webapp with MongoDB and Gradle
