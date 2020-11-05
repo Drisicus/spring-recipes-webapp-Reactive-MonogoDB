@@ -62,7 +62,6 @@ public class RecipeCommandToRecipeTest {
         recipeCommand.setUrl(URL);
 
         NotesCommand notes = new NotesCommand();
-        notes.setId(NOTES_ID);
 
         recipeCommand.setNotes(notes);
 

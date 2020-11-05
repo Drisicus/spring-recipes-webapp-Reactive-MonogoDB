@@ -33,7 +33,6 @@ public class NotesCommandToNotesTest {
     public void convert() throws Exception {
         //given
         NotesCommand notesCommand = new NotesCommand();
-        notesCommand.setId(ID_VALUE);
         notesCommand.setRecipeNotes(RECIPE_NOTES);
 
         //when
