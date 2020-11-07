@@ -4,79 +4,89 @@ import guru.springframework.domain.Recipe;
 import guru.springframework.services.RecipeService;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.thymeleaf.ThymeleafAutoConfiguration;
+import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.Import;
+import org.springframework.test.context.junit4.SpringRunner;
+import org.springframework.test.web.reactive.server.WebTestClient;
 import org.springframework.ui.Model;
 import reactor.core.publisher.Flux;
 
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
+import java.util.Objects;
 
+import static org.hamcrest.core.StringContains.containsString;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertThat;
 import static org.mockito.Mockito.*;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.view;
 
 
+@RunWith(SpringRunner.class)
+@WebFluxTest(controllers = IndexController.class)
+@Import(ThymeleafAutoConfiguration.class)
 public class IndexControllerTest {
 
-    @Mock
-    RecipeService recipeService;
+    private IndexController indexController;
+
+    @Autowired
+    WebTestClient webTestClient;
+
+    @MockBean
+    private RecipeService recipeService;
 
     @Mock
-    Model model;
-
-    IndexController controller;
+    private Model model;
 
     @Before
     public void setUp() throws Exception {
         MockitoAnnotations.initMocks(this);
-
-        controller = new IndexController(recipeService);
+        indexController = new IndexController(recipeService);
     }
 
     @Test
     public void testMockMVC() throws Exception {
-        MockMvc mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
+        Recipe recipe = new Recipe();
+        recipe.setDescription("Lasagne");
+        when(recipeService.getRecipes()).thenReturn(Flux.just(recipe));
 
-        when(recipeService.getRecipes()).thenReturn(Flux.empty());
-
-        mockMvc.perform(get("/"))
-                .andExpect(status().isOk())
-                .andExpect(view().name("index"));
+        webTestClient.get()
+                .uri("/")
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody(String.class)
+                .consumeWith(resp -> {
+                    String body = Objects.requireNonNull(resp.getResponseBody());
+                    assertThat(body, containsString("<td>Lasagne</td>"));
+                });
     }
 
     @Test
-    public void getIndexPage() throws Exception {
+    public void getIndexPage() {
 
-        //given
-        Set<Recipe> recipes = new HashSet<>();
-        recipes.add(new Recipe());
+        // given
+        Recipe recipe1 = new Recipe();
+        recipe1.setId("1");
+        Recipe recipe2 = new Recipe();
+        recipe2.setId("2");
 
-        Recipe recipe = new Recipe();
-        recipe.setId("1");
+        when(recipeService.getRecipes()).thenReturn(Flux.just(recipe1, recipe2));
 
-        recipes.add(recipe);
+        ArgumentCaptor<Flux<Recipe>> argCaptor = ArgumentCaptor.forClass(Flux.class);
 
-        when(recipeService.getRecipes()).thenReturn(Flux.fromIterable(recipes));
+        // when
+        String templateName = indexController.getIndexPage(model);
 
-        ArgumentCaptor<List<Recipe>> argumentCaptor = ArgumentCaptor.forClass(List.class);
-
-        //when
-        String viewName = controller.getIndexPage(model);
-
-
-        //then
-        assertEquals("index", viewName);
+        // then
+        assertEquals("index", templateName);
         verify(recipeService, times(1)).getRecipes();
-        verify(model, times(1)).addAttribute(eq("recipes"), argumentCaptor.capture());
-        List<Recipe> setInController = argumentCaptor.getValue();
-        assertEquals(2, setInController.size());
+        verify(model, times(1)).addAttribute(eq("recipes"), argCaptor.capture());
+        List<Recipe> modelRecipes = argCaptor.getValue().collectList().block();
+        assertEquals(2, modelRecipes.size());
     }
-
 }
